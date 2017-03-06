@@ -2,15 +2,15 @@
 
 const router = module.exports.router = function router(){
 
-	// defaults
-	this.routes = []
-	this.static_routes = {}
-	this.dynamic_routes = []
-	this.middlewares = []
-	this.middleware_count = 0
-	this.static_count = 0
-	this.dynamic_count = 0
-    this.route_count = 0
+    // defaults
+    this.routes = []
+    this.static_routes = {}
+    this.dynamicRoutes = []
+    this.middlewares = []
+    this.middlewareCount = 0
+    this.staticCount = 0
+    this.dynamicCount = 0
+    this.routeCount = 0
 }
 
 /**
@@ -20,16 +20,16 @@ const router = module.exports.router = function router(){
 **/
 const paramsParser = module.exports.paramsParser = function paramsParser(route){
 
-	const first_bracket_pos = route.path.indexOf('[')
-	if( first_bracket_pos < 0 ) return false;
+	const firstBracketPos = route.path.indexOf('[')
+	if( firstBracketPos < 0 ) return false;
 
 	route.params = []
 
 	// store the partial path
 	// we need it to do a partial url string equality
 	// before doing the test regex
-	route.partial_path = route.path.substr(0, first_bracket_pos)
-	route.partial_length = first_bracket_pos
+	route.partialPath = route.path.substr(0, firstBracketPos)
+	route.partialLength = firstBracketPos
 
 	// replace any regex reserved characters
 	route.test = route.match = route.path.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
@@ -44,7 +44,7 @@ const paramsParser = module.exports.paramsParser = function paramsParser(route){
 		return '(.*)';
 	})
 
-	route.params_length = route.params.length
+	route.paramsLength = route.params.length
 
 	route.testRegex = new RegExp( '^' + route.test + '$')
 	route.matchRegex = new RegExp( '^' + route.match + '$')
@@ -73,14 +73,14 @@ const wildcardParser = module.exports.wildcardParser = function wildcardParser(r
 	let wildcard_pos = route.path.indexOf('*')
 	if( wildcard_pos < 0 ) return false;
 
-	route.partial_path = route.path.substr(0, wildcard_pos)
-	route.partial_length = wildcard_pos
-	route.params_length = 0;
+	route.partialPath = route.path.substr(0, wildcard_pos)
+	route.partialLength = wildcard_pos
+	route.paramsLength = 0;
 
 	route.test = route.match = route.path.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
 
 	route.test = route.test.replace(/\\\*/g, function(match, submatch){
-		route.params_length++
+		route.paramsLength++
 		return '[^\/]+'; // one or more characters excluding / ( forward slash )
 	})
 
@@ -112,27 +112,27 @@ router.prototype.add = function(route){
 		return;
 
 	if( isStatic(route) ){
-		this.static_routes[route.method + ':' + route.path] = this.route_count
-		this.static_count++
+		this.static_routes[route.method + ':' + route.path] = this.routeCount
+		this.staticCount++
 	}
 	if( paramsParser(route) ){
-		this.dynamic_routes.push( this.route_count )
-		this.dynamic_count++
+		this.dynamicRoutes.push( this.routeCount )
+		this.dynamicCount++
 	}
 	if( wildcardParser(route) ){
-		this.dynamic_routes.push( this.route_count )
-		this.dynamic_count++
+		this.dynamicRoutes.push( this.routeCount )
+		this.dynamicCount++
 	}
 
 	route.handlersCount = route.handlers.length
 
     this.routes.push(route)
-    this.route_count++
+    this.routeCount++
 }
 
 router.prototype.use = function use(){
 	for(let i in arguments){
-		this.middleware_count++
+		this.middlewareCount++
 		this.middlewares.push(arguments[i])
 	}
 }
@@ -154,7 +154,7 @@ router.prototype.handleRequest = function handleRequest(req, res){
 		req.middlewareIndex = -1
 		res.locals = {}
 
-		if(this.middleware_count != 0){
+		if(this.middlewareCount != 0){
 			req.middlewares = this.middlewares
 			req.next = this.nextMiddleware
 			req.next();
@@ -166,20 +166,20 @@ router.prototype.handleRequest = function handleRequest(req, res){
 	// check for a static route first
 	if( typeof this.static_routes[ req.method+':'+req.url ] != 'undefined'){
 		req.routeIndex = this.static_routes[ req.method+':'+req.url ]
-	}else if(this.dynamic_count != 0){
+	}else if(this.dynamicCount != 0){
 		let i = 0;
 		while(1){
-			req.routeIndex = this.dynamic_routes[i++]
+			req.routeIndex = this.dynamicRoutes[i++]
 			// request method doesnt match this route method.. proceed to next route
 			if( req.method !== this.routes[req.routeIndex].method ) continue;
 
-			if( req.url.substring(0, this.routes[req.routeIndex].partial_length) &&
+			if( req.url.substring(0, this.routes[req.routeIndex].partialLength) &&
 				this.routes[req.routeIndex].testRegex.test(req.url) ){
 				break;
 			}
 
 			// end of dynamic routes
-			if( i >= this.dynamic_count ){
+			if( i >= this.dynamicCount ){
 				//console.log('shoud break')
 				req.routeIndex = -1
 				break;
@@ -202,11 +202,11 @@ router.prototype.handleRequest = function handleRequest(req, res){
 		req.params = {}
 
 		if( ! this_route.params ){ // manage wildcard
-			for(let i = 0; i < this_route.params_length; i++ ){
+			for(let i = 0; i < this_route.paramsLength; i++ ){
 				if( param_matches[i+1] ) req.params[ i ] = param_matches[i+1]
 			}
 		}else{ // manage params
-			for(let i = 0; i < this_route.params_length; i++ ){
+			for(let i = 0; i < this_route.paramsLength; i++ ){
 				if( param_matches[i+1] ) req.params[ this_route.params[i] ] = param_matches[i+1]
 			}
 		}
@@ -218,20 +218,20 @@ router.prototype.handleRequest = function handleRequest(req, res){
 }
 
 router.prototype.nextHandler = function nextHandler(err){
-	let req = this, router = this.router, this_route = router.routes[ req.routeIndex ];
+    let req = this, router = this.router, this_route = router.routes[ req.routeIndex ];
 
-	req.handlerIndex++
+    req.handlerIndex++
 
-	if( typeof this_route.handlers[ req.handlerIndex ] == 'undefined' ) return;
-	this_route.handlers[ req.handlerIndex ](req, req.client._httpMessage)
+    if( typeof this_route.handlers[ req.handlerIndex ] == 'undefined' ) return;
+    this_route.handlers[ req.handlerIndex ](req, req.client._httpMessage)
 }
 
 router.prototype.nextMiddleware = function nextMiddleware(err){
-	let req = this
-	req.middlewareIndex++
-	if( typeof req.middlewares[ req.middlewareIndex ] == 'undefined' ){
-		req.router.handleRequest(req, req.client._httpMessage)
-		return;
-	}
-	req.middlewares[ req.middlewareIndex ](req, req.client._httpMessage)
+    let req = this
+    req.middlewareIndex++
+    if( typeof req.middlewares[ req.middlewareIndex ] == 'undefined' ){
+        req.router.handleRequest(req, req.client._httpMessage)
+        return;
+    }
+    req.middlewares[ req.middlewareIndex ](req, req.client._httpMessage)
 }
