@@ -1,0 +1,8 @@
+{
+	"name": "route",
+	"version": "1.0.0",
+	"description": "router module",
+	"main": "route.js",
+	"author": "Cosmin Budinschi",
+	"license": "MIT"
+}
